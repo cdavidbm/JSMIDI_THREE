@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            font-family: 'Arial', sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Añadimos textura sutil al fondo */
+            background-image:
+                linear-gradient(135deg, #1e3c72, #2a5298),
+                url('data:image/svg+xml,%3Csvg width="20" height="20" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M0 0h20v20H0z" fill="%23ffffff" fill-opacity="0.05"/%3E%3C/svg%3E');
+        }
+
+        .container {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 700px;
+            height: 700px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            /* Mejoramos el efecto glassmorphism */
+            box-shadow:
+                0 0 40px rgba(0, 0, 0, 0.3),
+                inset 0 0 20px rgba(255, 255, 255, 0.1);
+            animation: containerGlow 4s ease-in-out infinite;
+        }
+
+        section {
+            display: flex;
+            justify-content: space-around;
+            /* Añadimos efecto de profundidad */
+            perspective: 1000px;
+        }
+
+        .creature {
+            background: linear-gradient(45deg, #4fc3f7, #29b6f6);
+            border: none;
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            cursor: pointer;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            /* Efecto de brillo */
+            background-size: 200% 200%;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        .creature::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 60%);
+            transform: rotate(45deg);
+            transition: all 0.6s ease;
+            opacity: 0;
+        }
+
+        .creature:hover::before {
+            opacity: 1;
+        }
+
+        .creature:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow:
+                0 10px 20px rgba(79, 195, 247, 0.3),
+                0 6px 6px rgba(79, 195, 247, 0.2);
+        }
+
+        .creature.selected {
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            transform: scale(1.1);
+            box-shadow:
+                0 15px 30px rgba(255, 107, 53, 0.4),
+                0 0 20px rgba(255, 107, 53, 0.3);
+            animation: selectedPulse 2s infinite;
+        }
+
+        .child {
+            width: 150px;
+            height: 150px;
+            background: linear-gradient(45deg, #4fc3f7, #29b6f6);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            box-shadow:
+                0 10px 30px rgba(0, 0, 0, 0.3),
+                inset 0 0 20px rgba(255, 255, 255, 0.2);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes selectedPulse {
+            0% {
+                box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 30px rgba(255, 107, 53, 0.6);
+            }
+
+            100% {
+                box-shadow: 0 0 20px rgba(255, 107, 53, 0.4);
+            }
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        @keyframes containerGlow {
+            0% {
+                box-shadow: 0 0 40px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.1);
+            }
+
+            50% {
+                box-shadow: 0 0 50px rgba(0, 0, 0, 0.4), inset 0 0 30px rgba(255, 255, 255, 0.15);
+            }
+
+            100% {
+                box-shadow: 0 0 40px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.1);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <section id="superior">
+            <article class="creature" id="c1">ID_1 Helecho</article>
+            <article class="creature" id="c2">ID_2 Coral</article>
+            <article class="creature" id="c3">ID_3 Cactus</article>
+        </section>
+        <section id="medio">
+            <article class="creature child" id="result">PREVIEW</article>
+        </section>
+        <section id="inferior">
+            <article class="creature" id="c4">ID_4 Medusa</article>
+            <article class="creature" id="c5">ID_5 Pulpo</article>
+            <article class="creature" id="c6">ID_6 Coral</article>
+        </section>
+    </div>
+    <script>
+        let selectedTop = null;
+        let selectedBottom = null;
+
+        document.addEventListener('keydown', (event) => {
+            // Manejar selección superior
+            if (event.key === 'q') selectCreature('c1');
+            if (event.key === 'w') selectCreature('c2');
+            if (event.key === 'e') selectCreature('c3');
+
+            // Manejar selección inferior
+            if (event.key === 'z') selectCreature('c4');
+            if (event.key === 'x') selectCreature('c5');
+            if (event.key === 'c') selectCreature('c6');
+        });
+
+        function selectCreature(id) {
+            const creature = document.getElementById(id);
+            if (!creature) return;
+
+            // Determinar si es superior o inferior
+            const isTop = ['c1', 'c2', 'c3'].includes(id);
+
+            // Remover selección previa
+            if (isTop) {
+                if (selectedTop) {
+                    document.getElementById(selectedTop).classList.remove('selected');
+                }
+                selectedTop = id;
+            } else {
+                if (selectedBottom) {
+                    document.getElementById(selectedBottom).classList.remove('selected');
+                }
+                selectedBottom = id;
+            }
+
+            // Añadir nueva selección
+            creature.classList.add('selected');
+            updateResult();
+        }
+
+        function updateResult() {
+            const result = document.getElementById('result');
+            if (selectedTop && selectedBottom) {
+                result.textContent = `Has elegido la criatura ${selectedTop} y la criatura ${selectedBottom}`;
+            } else if (selectedTop) {
+                result.textContent = `Has elegido la criatura ${selectedTop}`;
+            } else if (selectedBottom) {
+                result.textContent = `Has elegido la criatura ${selectedBottom}`;
+            }
+        }
+    </script>
+</body>
+
+</html>
