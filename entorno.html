@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entorno de Criaturas</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a2a3d, #2c3e50);
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="info">
+        <h3>🌍 Entorno de Criaturas</h3>
+        <p>Criaturas activas: <span id="numCriaturas">0</span></p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        const criaturas = [];
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredCriatura = null;
+        let selectedCriatura = null;
+        let dragging = false;
+        let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0));
+        let dragPoint = new THREE.Vector3();
+
+        // Modificar las constantes
+        const RADIO_COLISION = 2;
+        const DURACION_COLISION = 500;
+        const FUERZA_REBOTE = 0.1; // Reducido de 0.5 a 0.1
+        const MAX_COLISIONES = 3;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a2a3d);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 10);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            // Iluminación
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            // Suelo
+            const planeGeometry = new THREE.PlaneGeometry(50, 50);
+            const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.rotation.x = -Math.PI / 2;
+            plane.receiveShadow = true;
+            scene.add(plane);
+
+            cargarCriaturas();
+            animate();
+
+            // Añadir eventos de mouse
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mousedown', onMouseDown);
+            document.addEventListener('mouseup', onMouseUp);
+        }
+
+        // Añadir funciones de interacción
+        function onMouseDown(event) {
+            if (hoveredCriatura) {
+                selectedCriatura = hoveredCriatura;
+                dragging = true;
+                controls.enabled = false; // Deshabilitar controles de cámara durante el arrastre
+            }
+        }
+
+        function onMouseUp() {
+            if (selectedCriatura && dragging) {
+                // Reiniciar movimiento desde la nueva posición
+                selectedCriatura.velocidad = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.05,
+                    0,
+                    (Math.random() - 0.5) * 0.05
+                );
+            }
+            selectedCriatura = null;
+            dragging = false;
+            controls.enabled = true; // Reactivar controles de cámara
+        }
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            if (dragging && selectedCriatura) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersectPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+
+                // Actualizar posición de la criatura
+                selectedCriatura.modelo.position.copy(intersectPoint);
+                selectedCriatura.position = {
+                    x: intersectPoint.x,
+                    y: intersectPoint.y,
+                    z: intersectPoint.z
+                };
+                // Detener movimiento mientras se arrastra
+                selectedCriatura.velocidad.set(0, 0, 0);
+            }
+        }
+
+        async function cargarCriaturas() {
+            const criaturasGuardadas = JSON.parse(localStorage.getItem('criaturas') || '[]');
+            const loader = new GLTFLoader();
+
+            for (const criatura of criaturasGuardadas) {
+                try {
+                    const gltf = await loader.loadAsync('./models/morphing_creatures.glb');
+                    const modelo = gltf.scene.clone();
+
+                    // Aplicar los morph targets guardados
+                    modelo.traverse((child) => {
+                        if (child.isMesh && child.morphTargetInfluences && child.morphTargetDictionary) {
+                            // Aplicar cada valor de morph target
+                            Object.entries(criatura.morphTargets).forEach(([name, value]) => {
+                                const index = child.morphTargetDictionary[name];
+                                if (typeof index !== 'undefined') {
+                                    child.morphTargetInfluences[index] = value;
+                                }
+                            });
+                        }
+                    });
+
+                    // Posicionar la criatura
+                    modelo.position.set(
+                        criatura.position.x,
+                        criatura.position.y,
+                        criatura.position.z
+                    );
+
+                    scene.add(modelo);
+                    criaturas.push({
+                        id: criatura.id, // Asegurarnos de mantener el ID
+                        modelo,
+                        position: { ...criatura.position },
+                        velocidad: new THREE.Vector3(
+                            (Math.random() - 0.5) * 0.05,
+                            0,
+                            (Math.random() - 0.5) * 0.05
+                        ),
+                        colisionando: false,
+                        tiempoColision: 0,
+                        contadorColisiones: 0
+                    });
+
+                    // Actualizar contador
+                    document.getElementById('numCriaturas').textContent = criaturas.length;
+                } catch (error) {
+                    console.error('Error al cargar criatura:', error);
+                }
+            }
+        }
+
+        function checkIntersection() {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            // Restaurar criatura previamente hovereada
+            if (hoveredCriatura) {
+                hoveredCriatura.modelo.scale.set(1, 1, 1);
+                hoveredCriatura.modelo.traverse(child => {
+                    if (child.isMesh) {
+                        child.material.emissive.setHex(0x000000);
+                        child.material.emissiveIntensity = 0;
+                    }
+                });
+            }
+
+            hoveredCriatura = null;
+
+            // Verificar nueva intersección
+            if (intersects.length > 0) {
+                const intersectedObject = intersects[0].object;
+                // Buscar el modelo raíz ascendiendo en la jerarquía
+                let root = intersectedObject;
+                while (root.parent && root.parent.type !== "Scene") {
+                    root = root.parent;
+                }
+                const criatura = criaturas.find(c => c.modelo === root);
+
+                if (criatura) {
+                    hoveredCriatura = criatura;
+                    // Efecto de hover
+                    criatura.modelo.scale.set(1.1, 1.1, 1.1);
+                    criatura.modelo.traverse(child => {
+                        if (child.isMesh) {
+                            child.material.emissive.setHex(0x00ff00);
+                            child.material.emissiveIntensity = 0.5;
+                        }
+                    });
+                }
+            }
+        }
+
+        // Añadir función de detección de colisiones
+        function detectarColisiones() {
+            for (let i = 0; i < criaturas.length; i++) {
+                for (let j = i + 1; j < criaturas.length; j++) {
+                    const criatura1 = criaturas[i];
+                    const criatura2 = criaturas[j];
+
+                    const distancia = criatura1.modelo.position.distanceTo(criatura2.modelo.position);
+
+                    if (distancia < RADIO_COLISION) {
+                        // Incrementar contadores
+                        criatura1.contadorColisiones++;
+                        criatura2.contadorColisiones++;
+
+                        // Calcular dirección de rebote
+                        const direccion = new THREE.Vector3()
+                            .subVectors(criatura1.modelo.position, criatura2.modelo.position)
+                            .normalize();
+
+                        // Aplicar rebote con menor fuerza
+                        criatura1.velocidad.add(direccion.multiplyScalar(FUERZA_REBOTE));
+                        criatura2.velocidad.add(direccion.multiplyScalar(-FUERZA_REBOTE));
+
+                        // Marcar colisión
+                        criatura1.colisionando = true;
+                        criatura2.colisionando = true;
+                        criatura1.tiempoColision = Date.now();
+                        criatura2.tiempoColision = Date.now();
+
+                        // Aplicar efecto visual
+                        aplicarEfectoColision(criatura1);
+                        aplicarEfectoColision(criatura2);
+
+                        // Verificar si deben ser eliminadas
+                        verificarEliminacion(criatura1);
+                        verificarEliminacion(criatura2);
+                    }
+                }
+            }
+        }
+
+        // Añadir función para efecto visual de colisión
+        function aplicarEfectoColision(criatura) {
+            criatura.modelo.traverse(child => {
+                if (child.isMesh) {
+                    child.material.emissive.setHex(0xff0000);
+                    child.material.emissiveIntensity = 1;
+                }
+            });
+        }
+
+        // Añadir función para restaurar apariencia normal
+        function restaurarAparienciaNormal(criatura) {
+            criatura.modelo.traverse(child => {
+                if (child.isMesh) {
+                    child.material.emissive.setHex(0x000000);
+                    child.material.emissiveIntensity = 0;
+                }
+            });
+            criatura.colisionando = false;
+        }
+
+        // Modificar función verificarEliminacion
+        function verificarEliminacion(criatura) {
+            if (criatura.contadorColisiones >= MAX_COLISIONES) {
+                // Eliminar del escenario
+                scene.remove(criatura.modelo);
+
+                // Eliminar del array de criaturas
+                const index = criaturas.indexOf(criatura);
+                if (index > -1) {
+                    criaturas.splice(index, 1);
+                }
+
+                // Actualizar contador en la interfaz
+                document.getElementById('numCriaturas').textContent = criaturas.length;
+            }
+        }
+
+        // Modificar la función animate
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Actualizar raycast
+            checkIntersection();
+
+            // Detectar colisiones
+            detectarColisiones();
+
+            // Mover criaturas
+            const tiempoActual = Date.now();
+            criaturas.forEach(criatura => {
+                // No mover si está siendo arrastrada
+                if (criatura === selectedCriatura && dragging) return;
+
+                // Verificar si debe restaurar apariencia después de colisión
+                if (criatura.colisionando && tiempoActual - criatura.tiempoColision > DURACION_COLISION) {
+                    restaurarAparienciaNormal(criatura);
+                }
+
+                criatura.modelo.position.add(criatura.velocidad);
+
+                // Rebote en los límites
+                if (Math.abs(criatura.modelo.position.x) > 20) {
+                    criatura.velocidad.x *= -1;
+                    criatura.modelo.position.x = Math.sign(criatura.modelo.position.x) * 20;
+                }
+                if (Math.abs(criatura.modelo.position.z) > 20) {
+                    criatura.velocidad.z *= -1;
+                    criatura.modelo.position.z = Math.sign(criatura.modelo.position.z) * 20;
+                }
+
+                // Rotación suave
+                criatura.modelo.rotation.y += 0.01;
+
+                // Vibración si está hovereada
+                if (hoveredCriatura === criatura) {
+                    criatura.modelo.position.y = criatura.position?.y || 0;
+                    criatura.modelo.position.y += Math.sin(Date.now() * 0.01) * 0.1;
+                }
+            });
+
+            renderer.render(scene, camera);
+            controls.update();
+        }
+
+        init();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+
+</html>
