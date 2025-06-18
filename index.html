@@ -232,14 +232,16 @@
         let midiAccess = null;
         let synth = null;
 
-        // Configuración MIDI
+        // Modificar la configuración MIDI
         const SLIDER_CC_MAP = {
             110: 0,
             111: 1,
             112: 2,
             113: 3,
             114: 4,
-            115: 5
+            115: 5,
+            116: 'color',
+            117: 'scale'
         };
 
         // Inicialización MIDI
@@ -265,17 +267,26 @@
         function handleMIDIMessage(event) {
             const [command, cc, value] = event.data;
 
-            // Control Change messages
             if (command === 0xB0) {
-                // Mantener solo esta parte
-                if (cc >= 110 && cc <= 115) {
-                    const sliderIndex = SLIDER_CC_MAP[cc];
+                if (cc === 116) {
                     const normalizedValue = value / 127;
-                    const sliders = document.querySelectorAll('.slider');
-                    if (sliders[sliderIndex]) {
-                        sliders[sliderIndex].value = normalizedValue;
-                        const event = new Event('input', { bubbles: true });
-                        sliders[sliderIndex].dispatchEvent(event);
+                    setCreatureColor(normalizedValue);
+                    document.querySelector('[data-type="color"]').value = normalizedValue;
+                } else if (cc === 117) {
+                    const scaleValue = (value / 127) * 1.5 + 0.5; // Mapear 0-127 a 0.5-2
+                    setCreatureScale(scaleValue);
+                    document.querySelector('[data-type="scale"]').value = scaleValue;
+                } else if (cc >= 110 && cc <= 115) {
+                    // Mantener solo esta parte
+                    if (cc >= 110 && cc <= 115) {
+                        const sliderIndex = SLIDER_CC_MAP[cc];
+                        const normalizedValue = value / 127;
+                        const sliders = document.querySelectorAll('.slider');
+                        if (sliders[sliderIndex]) {
+                            sliders[sliderIndex].value = normalizedValue;
+                            const event = new Event('input', { bubbles: true });
+                            sliders[sliderIndex].dispatchEvent(event);
+                        }
                     }
                 }
             }
@@ -297,7 +308,7 @@
         }
 
         function init() {
-            initSession(); 
+            initSession();
 
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x001122);
@@ -428,8 +439,9 @@
                 }
             });
 
-            // Crear controles para morph targets
+            // Crear controles para morph targets y extras
             createMorphControls();
+            createExtraControls();
             updateModelInfo(meshesWithMorphs);
         }
 
@@ -470,6 +482,93 @@
                 sliderContainer.appendChild(slider);
                 container.appendChild(sliderContainer);
             });
+        }
+
+        // Añadir después de createMorphControls()
+        function createExtraControls() {
+            const container = document.getElementById('morphSliders');
+
+            // Control de Color
+            const colorContainer = document.createElement('div');
+            colorContainer.className = 'slider-container';
+
+            const colorLabel = document.createElement('label');
+            colorLabel.textContent = 'Color de Criatura';
+
+            const colorValue = document.createElement('span');
+            colorValue.className = 'value-display';
+            colorValue.textContent = '0.00';
+
+            const colorSlider = document.createElement('input');
+            colorSlider.type = 'range';
+            colorSlider.className = 'slider';
+            colorSlider.min = '0';
+            colorSlider.max = '1';
+            colorSlider.step = '0.01';
+            colorSlider.value = '0';
+            colorSlider.setAttribute('data-type', 'color');
+
+            colorSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                setCreatureColor(value);
+                colorValue.textContent = value.toFixed(2);
+            });
+
+            // Control de Tamaño
+            const scaleContainer = document.createElement('div');
+            scaleContainer.className = 'slider-container';
+
+            const scaleLabel = document.createElement('label');
+            scaleLabel.textContent = 'Tamaño de Criatura';
+
+            const scaleValue = document.createElement('span');
+            scaleValue.className = 'value-display';
+            scaleValue.textContent = '1.00';
+
+            const scaleSlider = document.createElement('input');
+            scaleSlider.type = 'range';
+            scaleSlider.className = 'slider';
+            scaleSlider.min = '0.5';
+            scaleSlider.max = '2';
+            scaleSlider.step = '0.01';
+            scaleSlider.value = '1';
+            scaleSlider.setAttribute('data-type', 'scale');
+
+            scaleSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                setCreatureScale(value);
+                scaleValue.textContent = value.toFixed(2);
+            });
+
+            colorLabel.appendChild(colorValue);
+            colorContainer.appendChild(colorLabel);
+            colorContainer.appendChild(colorSlider);
+
+            scaleLabel.appendChild(scaleValue);
+            scaleContainer.appendChild(scaleLabel);
+            scaleContainer.appendChild(scaleSlider);
+
+            container.appendChild(colorContainer);
+            container.appendChild(scaleContainer);
+        }
+
+        // Añadir funciones para color y escala
+        function setCreatureColor(value) {
+            if (model) {
+                const hue = value;
+                const color = new THREE.Color().setHSL(hue, 0.7, 0.5);
+                model.traverse(child => {
+                    if (child.isMesh) {
+                        child.material.color = color;
+                    }
+                });
+            }
+        }
+
+        function setCreatureScale(value) {
+            if (model) {
+                model.scale.set(value, value, value);
+            }
         }
 
         function setMorphTarget(targetName, value) {
@@ -514,6 +613,12 @@
 
             // Reset botones
             document.querySelectorAll('.button').forEach(btn => btn.classList.remove('active'));
+
+            // Reset color y escala
+            setCreatureColor(0);
+            setCreatureScale(1);
+            document.querySelector('[data-type="color"]').value = 0;
+            document.querySelector('[data-type="scale"]').value = 1;
         };
 
         window.toggleWireframe = function () {
@@ -557,6 +662,9 @@
                     y: 0,
                     z: (Math.random() - 0.5) * 20
                 },
+                // Añadir color y escala
+                color: parseFloat(document.querySelector('[data-type="color"]').value),
+                scale: parseFloat(document.querySelector('[data-type="scale"]').value),
                 timestamp: new Date().toISOString()
             };
 

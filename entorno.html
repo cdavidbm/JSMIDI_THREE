@@ -59,9 +59,11 @@
         const PARTICLE_SPAWN_INTERVAL = 5000; // 5 segundos
         const VIDA_INICIAL = 100;
         const VIDA_DEGRADACION = 0.05; // Puntos que se restan por frame
-        const VIDA_WIREFRAME = 30; // Nivel donde empieza el wireframe
+        const VIDA_WIREFRAME = 50; // Nivel donde empieza el wireframe
         const PARTICULAS_PARA_VIDA = 1; // Partículas necesarias para recuperar vida
         const VIDA_RECUPERADA = 5; // Cantidad de vida que se recupera
+        const DEFAULT_COLOR = 0;
+        const DEFAULT_SCALE = 1;
         let particles = [];
         let lastParticleSpawn = 0;
 
@@ -231,8 +233,19 @@
                                     child.morphTargetInfluences[index] = value;
                                 }
                             });
+
+                            // Aplicar color si existe
+                            if (criatura.color !== undefined) {
+                                const color = new THREE.Color().setHSL(criatura.color, 0.7, 0.5);
+                                child.material.color = color;
+                            }
                         }
                     });
+
+                    // Aplicar escala si existe
+                    if (criatura.scale !== undefined) {
+                        modelo.scale.set(criatura.scale, criatura.scale, criatura.scale);
+                    }
 
                     // Posicionar la criatura (volver a la posición original)
                     modelo.position.set(
@@ -255,7 +268,8 @@
                         tiempoColision: 0,
                         contadorColisiones: 0,
                         vida: VIDA_INICIAL, // Añadir vida inicial
-                        particulasRecolectadas: 0 // Añadir contador de partículas
+                        particulasRecolectadas: 0, // Añadir contador de partículas
+                        scale: criatura.scale || 1,  // Guardar la escala original
                     });
 
                     document.getElementById('numCriaturas').textContent = criaturas.length;
@@ -288,8 +302,19 @@
                                 child.morphTargetInfluences[index] = value;
                             }
                         });
+
+                        // Aplicar color si existe
+                        if (criatura.color !== undefined) {
+                            const color = new THREE.Color().setHSL(criatura.color, 0.7, 0.5);
+                            child.material.color = color;
+                        }
                     }
                 });
+
+                // Aplicar escala si existe
+                if (criatura.scale !== undefined) {
+                    modelo.scale.set(criatura.scale, criatura.scale, criatura.scale);
+                }
 
                 // Posicionar la criatura
                 modelo.position.set(
@@ -312,7 +337,8 @@
                     tiempoColision: 0,
                     contadorColisiones: 0,
                     vida: VIDA_INICIAL, // Añadir vida inicial
-                    particulasRecolectadas: 0 // Añadir contador de partículas
+                    particulasRecolectadas: 0, // Añadir contador de partículas
+                    scale: criatura.scale || 1,  // Guardar la escala original
                 });
 
                 // Actualizar contador
@@ -328,7 +354,10 @@
 
             // Restaurar criatura previamente hovereada
             if (hoveredCriatura) {
-                hoveredCriatura.modelo.scale.set(1, 1, 1);
+                // Restaurar escala original
+                const escalaOriginal = hoveredCriatura.scale || 1;
+                hoveredCriatura.modelo.scale.set(escalaOriginal, escalaOriginal, escalaOriginal);
+
                 hoveredCriatura.modelo.traverse(child => {
                     if (child.isMesh) {
                         child.material.emissive.setHex(0x000000);
@@ -351,8 +380,14 @@
 
                 if (criatura) {
                     hoveredCriatura = criatura;
-                    // Efecto de hover
-                    criatura.modelo.scale.set(1.1, 1.1, 1.1);
+                    // Aplicar efecto hover manteniendo la escala original
+                    const escalaOriginal = criatura.scale || 1;
+                    criatura.modelo.scale.set(
+                        escalaOriginal * 1.1,
+                        escalaOriginal * 1.1,
+                        escalaOriginal * 1.1
+                    );
+
                     criatura.modelo.traverse(child => {
                         if (child.isMesh) {
                             child.material.emissive.setHex(0x00ff00);
@@ -442,26 +477,21 @@
             }
         }
 
-        // Añadir función para actualizar apariencia según vida
+        // Modificar la función actualizarAparienciaPorVida
         function actualizarAparienciaPorVida(criatura) {
             criatura.modelo.traverse(child => {
                 if (child.isMesh) {
-                    // Calcular opacidad basada en la vida
-                    const opacidad = Math.max(criatura.vida / VIDA_INICIAL, 0.2);
-
-                    // Oscurecer el material
-                    const factor = Math.max(criatura.vida / VIDA_INICIAL, 0.3);
-                    child.material.opacity = opacidad;
+                    // Solo modificamos la opacidad y el wireframe
                     child.material.transparent = true;
 
-                    // Ajustar color y wireframe según vida
                     if (criatura.vida <= VIDA_WIREFRAME) {
+                        // Cuando la vida es baja, activamos wireframe y ajustamos opacidad
                         child.material.wireframe = true;
-                        const wireframeOpacity = criatura.vida / VIDA_WIREFRAME;
-                        child.material.opacity = wireframeOpacity;
+                        child.material.opacity = criatura.vida / VIDA_WIREFRAME;
                     } else {
+                        // Mantener sólido y totalmente visible
                         child.material.wireframe = false;
-                        child.material.color.setRGB(factor, factor, factor);
+                        child.material.opacity = 1;
                     }
                 }
             });
