@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Cámara con MediaPipe</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .video-container {
+            position: relative;
+            margin: 20px 0;
+        }
+
+        #videoElement {
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #333;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #2ecc71;
+        }
+
+        .error {
+            background: #e74c3c;
+        }
+
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #333;
+            border-radius: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .info {
+            background: #333;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎥 Test de Cámara con MediaPipe</h1>
+
+        <div class="controls">
+            <button onclick="iniciarCamara()">📷 Iniciar Cámara</button>
+            <button onclick="detenerCamara()">⏹️ Detener Cámara</button>
+            <button onclick="togglePose()">🧍 Toggle Pose Detection</button>
+        </div>
+
+        <div class="video-container">
+            <video id="videoElement" autoplay playsinline></video>
+            <canvas id="canvasElement" style="position: absolute; left: 0; top: 0;"></canvas>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="info">
+            <h3>📊 Información del Sistema</h3>
+            <div id="deviceInfo"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+
+    <script>
+        let videoElement = document.getElementById('videoElement');
+        let canvasElement = document.getElementById('canvasElement');
+        let statusDiv = document.getElementById('status');
+        let deviceInfoDiv = document.getElementById('deviceInfo');
+        let stream = null;
+        let pose = null;
+        let camera = null;
+        let poseActive = false;
+
+        async function mostrarInfoDispositivos() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(device => device.kind === 'videoinput');
+
+                deviceInfoDiv.innerHTML = `
+                    <p>🎥 Cámaras detectadas: ${cameras.length}</p>
+                    ${cameras.map(camera => `
+                        <div style="margin: 10px 0; padding: 10px; background: #444; border-radius: 5px;">
+                            📷 ${camera.label || 'Cámara sin nombre'}<br>
+                            🆔 ${camera.deviceId}
+                        </div>
+                    `).join('')}
+                `;
+            } catch (error) {
+                deviceInfoDiv.innerHTML = `❌ Error al obtener información: ${error.message}`;
+            }
+        }
+
+        async function iniciarCamara() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user'
+                    }
+                });
+
+                videoElement.srcObject = stream;
+                canvasElement.width = videoElement.width;
+                canvasElement.height = videoElement.height;
+
+                mostrarEstado('✅ Cámara iniciada correctamente', 'success');
+                mostrarInfoDispositivos();
+
+                if (poseActive) {
+                    iniciarPoseDetection();
+                }
+            } catch (error) {
+                mostrarEstado(`❌ Error al iniciar la cámara: ${error.message}`, 'error');
+            }
+        }
+
+        function detenerCamara() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                videoElement.srcObject = null;
+                mostrarEstado('⏹️ Cámara detenida', 'success');
+            }
+        }
+
+        function mostrarEstado(mensaje, tipo) {
+            statusDiv.textContent = mensaje;
+            statusDiv.className = `status ${tipo}`;
+        }
+
+        function togglePose() {
+            poseActive = !poseActive;
+            if (poseActive) {
+                iniciarPoseDetection();
+                mostrarEstado('🧍 Detección de pose activada', 'success');
+            } else {
+                mostrarEstado('⏹️ Detección de pose desactivada', 'success');
+            }
+        }
+
+        function iniciarPoseDetection() {
+            if (!pose) {
+                pose = new Pose({
+                    locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+                    }
+                });
+
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+
+                pose.onResults(onResults);
+
+                if (!camera) {
+                    camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (poseActive) {
+                                await pose.send({ image: videoElement });
+                            }
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                }
+                camera.start();
+            }
+        }
+
+        function onResults(results) {
+            const ctx = canvasElement.getContext('2d');
+            ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.poseLandmarks) {
+                drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS,
+                    { color: '#00FF00', lineWidth: 4 });
+                drawLandmarks(ctx, results.poseLandmarks,
+                    { color: '#FF0000', lineWidth: 2 });
+            }
+        }
+
+        // Iniciar al cargar la página
+        mostrarInfoDispositivos();
+    </script>
+</body>
+
+</html>
