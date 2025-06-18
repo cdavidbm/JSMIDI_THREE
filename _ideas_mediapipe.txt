@@ -1,0 +1,97 @@
+Necesito implementar el control gestual con MediaPipe en mi proyecto de Three.js que tiene las siguientes características:
+
+1. Estructura actual del proyecto:
+- entorno.html: Página donde se visualizan las criaturas 3D
+- Usa Three.js para renderizado 3D
+- Las criaturas se pueden arrastrar con el mouse actualmente
+- Tiene un sistema de colisiones entre criaturas
+
+2. Requisitos específicos:
+- Implementar MediaPipe Hands para control gestual
+- Mantener la funcionalidad existente del mouse
+- Agregar una vista previa de la cámara web
+- Detectar gestos básicos:
+  * Agarrar criatura (cerrar mano, puño)
+  * Mover criatura (seguimiento de la mano cerrada)
+  * Soltar criatura (abrir mano)
+  * Hover: Apuntar con el dedo índice
+
+
+3. Consideraciones técnicas:
+- El proyecto usa módulos ES6
+- Debe ser compatible con navegadores modernos
+- Necesito el código para:
+  * Configuración de MediaPipe
+  * Integración con Three.js existente
+  * Gestión de eventos de gestos
+  * Interfaz de usuario para la cámara
+
+4. Estructura del código necesaria:
+- Inicialización de MediaPipe
+- Funciones de detección de gestos
+- Manejo de interacciones
+- Estilos CSS necesarios
+- Integración con el sistema existente de física/colisiones
+
+5. Ejemplos de uso deseados:
+- Cómo agarrar una criatura con gesto de pinza
+- Cómo mover la criatura en el espacio 3D
+- Cómo detectar cuando soltar la criatura
+
+Por favor, proporciona el código completo con comentarios explicativos y las instrucciones de implementación paso a paso.
+
+
+
+
+
+
+Notas adicionales para el prompt:
+Incluir enlaces al código actual si es posible
+Especificar que se requiere código para entorno.html
+Mencionar que debe ser compatible con el sistema de criaturas existente
+Solicitar ejemplos de prueba y casos de uso
+Pedir documentación sobre la calibración de gestos
+
+Formato de respuesta esperado:
+Cambios necesarios en HTML
+Código JavaScript para MediaPipe
+Estilos CSS
+Instrucciones de implementación
+Ejemplos de uso
+Consideraciones de rendimiento
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------------
+
+
+Consideraciones:
+Rendimiento: MediaPipe puede afectar el rendimiento, especialmente en dispositivos menos potentes.
+Iluminación: La detección de manos funciona mejor con buena iluminación.
+Privacidad: Agregar un botón para activar/desactivar la cámara.
+Calibración: Podrías agregar controles para ajustar la sensibilidad de los gestos.
+
+
+Uso:
+Apunta con el dedo índice para hacer hover sobre las criaturas
+Cierra la mano (gesto de pinza) para agarrar una criatura
+Mueve la mano para mover la criatura
+Abre la mano para soltar la criatura
+
+
+
+
+
+
+
+

@@ -1,0 +1,32 @@
+
+Limitado al espacio de localStorage (5-10MB)
+No hay sincronización entre pestañas en tiempo real
+Los datos se pierden si se limpia el navegador
+
+
+
+
+
+
+
+
+
+PERSISTENCIA MEJORADA
+
+// Usando IndexedDB para más almacenamiento
+const db = await idb.openDB('criaturas-db', 1, {
+    upgrade(db) {
+        db.createObjectStore('criaturas', { keyPath: 'id' });
+    },
+});
+
+
+
+
+
+
+
+
+
+
+
