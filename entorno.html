@@ -28,7 +28,7 @@
 
 <body>
     <div class="info">
-        <h3>🌍 Entorno de Criaturas</h3>El
+        <h3>🌍 Entorno de Criaturas</h3>
         <p>Criaturas activas: <span id="numCriaturas">0</span></p>
     </div>
 
@@ -52,6 +52,18 @@
         const DURACION_COLISION = 500;
         const FUERZA_REBOTE = 0.1; // Reducido de 0.5 a 0.1
         const MAX_COLISIONES = 3;
+
+        // Añadir después de las constantes existentes
+        const PARTICLES_COUNT = 50;
+        const PARTICLE_SIZE = 0.1;
+        const PARTICLE_SPAWN_INTERVAL = 5000; // 5 segundos
+        const VIDA_INICIAL = 100;
+        const VIDA_DEGRADACION = 0.05; // Puntos que se restan por frame
+        const VIDA_WIREFRAME = 30; // Nivel donde empieza el wireframe
+        const PARTICULAS_PARA_VIDA = 1; // Partículas necesarias para recuperar vida
+        const VIDA_RECUPERADA = 5; // Cantidad de vida que se recupera
+        let particles = [];
+        let lastParticleSpawn = 0;
 
         // Añadir después de las variables globales
         const channel = new BroadcastChannel('criaturas');
@@ -86,6 +98,9 @@
             plane.receiveShadow = true;
             scene.add(plane);
 
+            // Añadir después de crear el plano
+            createParticles();
+
             cargarCriaturas();
             animate();
 
@@ -93,6 +108,64 @@
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mousedown', onMouseDown);
             document.addEventListener('mouseup', onMouseUp);
+        }
+
+        // Añadir después de init()
+        function createParticles() {
+            for (let i = 0; i < PARTICLES_COUNT; i++) {
+                const geometry = new THREE.SphereGeometry(PARTICLE_SIZE, 4, 4);
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const particle = new THREE.Mesh(geometry, material);
+                spawnParticle(particle);
+                scene.add(particle);
+                particles.push(particle);
+            }
+        }
+
+        function spawnParticle(particle) {
+            particle.position.x = (Math.random() - 0.5) * 40;
+            particle.position.z = (Math.random() - 0.5) * 40;
+            particle.position.y = 0.1;
+            particle.visible = true;
+        }
+
+        function checkParticleCollisions() {
+            particles.forEach(particle => {
+                if (!particle.visible) return;
+
+                criaturas.forEach(criatura => {
+                    const distance = particle.position.distanceTo(criatura.modelo.position);
+                    if (distance < RADIO_COLISION) {
+                        particle.visible = false;
+                        criatura.particulasRecolectadas++;
+
+                        // Verificar si se debe recuperar vida
+                        if (criatura.particulasRecolectadas >= PARTICULAS_PARA_VIDA) {
+                            if (criatura.vida < VIDA_INICIAL) {
+                                criatura.vida += VIDA_RECUPERADA;
+                                criatura.vida = Math.min(criatura.vida, VIDA_INICIAL); // No exceder vida máxima
+                            }
+                            criatura.particulasRecolectadas = 0; // Reiniciar contador
+                        }
+                    }
+                });
+            });
+        }
+
+        function updateParticles() {
+            const currentTime = Date.now();
+            if (currentTime - lastParticleSpawn > PARTICLE_SPAWN_INTERVAL) {
+                particles.forEach(particle => {
+                    if (!particle.visible) {
+                        spawnParticle(particle);
+                    }
+                });
+                lastParticleSpawn = currentTime;
+            }
         }
 
         // Añadir funciones de interacción
@@ -161,7 +234,7 @@
                         }
                     });
 
-                    // Posicionar la criatura
+                    // Posicionar la criatura (volver a la posición original)
                     modelo.position.set(
                         criatura.position.x,
                         criatura.position.y,
@@ -170,7 +243,7 @@
 
                     scene.add(modelo);
                     criaturas.push({
-                        id: criatura.id, // Asegurarnos de mantener el ID
+                        id: criatura.id,
                         modelo,
                         position: { ...criatura.position },
                         velocidad: new THREE.Vector3(
@@ -180,10 +253,11 @@
                         ),
                         colisionando: false,
                         tiempoColision: 0,
-                        contadorColisiones: 0
+                        contadorColisiones: 0,
+                        vida: VIDA_INICIAL, // Añadir vida inicial
+                        particulasRecolectadas: 0 // Añadir contador de partículas
                     });
 
-                    // Actualizar contador
                     document.getElementById('numCriaturas').textContent = criaturas.length;
                 } catch (error) {
                     console.error('Error al cargar criatura:', error);
@@ -236,7 +310,9 @@
                     ),
                     colisionando: false,
                     tiempoColision: 0,
-                    contadorColisiones: 0
+                    contadorColisiones: 0,
+                    vida: VIDA_INICIAL, // Añadir vida inicial
+                    particulasRecolectadas: 0 // Añadir contador de partículas
                 });
 
                 // Actualizar contador
@@ -366,7 +442,32 @@
             }
         }
 
-        // Modificar la función animate
+        // Añadir función para actualizar apariencia según vida
+        function actualizarAparienciaPorVida(criatura) {
+            criatura.modelo.traverse(child => {
+                if (child.isMesh) {
+                    // Calcular opacidad basada en la vida
+                    const opacidad = Math.max(criatura.vida / VIDA_INICIAL, 0.2);
+
+                    // Oscurecer el material
+                    const factor = Math.max(criatura.vida / VIDA_INICIAL, 0.3);
+                    child.material.opacity = opacidad;
+                    child.material.transparent = true;
+
+                    // Ajustar color y wireframe según vida
+                    if (criatura.vida <= VIDA_WIREFRAME) {
+                        child.material.wireframe = true;
+                        const wireframeOpacity = criatura.vida / VIDA_WIREFRAME;
+                        child.material.opacity = wireframeOpacity;
+                    } else {
+                        child.material.wireframe = false;
+                        child.material.color.setRGB(factor, factor, factor);
+                    }
+                }
+            });
+        }
+
+        // Modificar la función animate para incluir la degradación de vida
         function animate() {
             requestAnimationFrame(animate);
 
@@ -375,21 +476,36 @@
 
             // Detectar colisiones
             detectarColisiones();
+            checkParticleCollisions();
+            updateParticles();
 
             // Mover criaturas
             const tiempoActual = Date.now();
-            criaturas.forEach(criatura => {
-                // No mover si está siendo arrastrada
+            criaturas.forEach((criatura, index) => {
+                // Reducir vida
+                criatura.vida -= VIDA_DEGRADACION;
+
+                // Actualizar apariencia
+                actualizarAparienciaPorVida(criatura);
+
+                // Eliminar si la vida llega a 0
+                if (criatura.vida <= 0) {
+                    scene.remove(criatura.modelo);
+                    criaturas.splice(index, 1);
+                    document.getElementById('numCriaturas').textContent = criaturas.length;
+                    return;
+                }
+
                 if (criatura === selectedCriatura && dragging) return;
 
-                // Verificar si debe restaurar apariencia después de colisión
                 if (criatura.colisionando && tiempoActual - criatura.tiempoColision > DURACION_COLISION) {
                     restaurarAparienciaNormal(criatura);
                 }
 
+                // Restaurar movimiento en todos los ejes
                 criatura.modelo.position.add(criatura.velocidad);
 
-                // Rebote en los límites
+                // Rebote en los límites (restaurar comportamiento original)
                 if (Math.abs(criatura.modelo.position.x) > 20) {
                     criatura.velocidad.x *= -1;
                     criatura.modelo.position.x = Math.sign(criatura.modelo.position.x) * 20;
@@ -399,10 +515,8 @@
                     criatura.modelo.position.z = Math.sign(criatura.modelo.position.z) * 20;
                 }
 
-                // Rotación suave
                 criatura.modelo.rotation.y += 0.01;
 
-                // Vibración si está hovereada
                 if (hoveredCriatura === criatura) {
                     criatura.modelo.position.y = criatura.position?.y || 0;
                     criatura.modelo.position.y += Math.sin(Date.now() * 0.01) * 0.1;
