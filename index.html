@@ -201,7 +201,8 @@
             <h3>🎨 Visualización</h3>
             <button class="button" onclick="toggleWireframe()" id="wireframeButton">📐 Wireframe</button>
             <button class="button" onclick="toggleRotation()" id="rotationButton">🔄 Auto-rotar</button>
-            <button class="button aprobar-button" onclick="aprobarCriatura()" id="aprobarButton">✅ Aprobar Criatura</button>
+            <button class="button aprobar-button" onclick="aprobarCriatura()" id="aprobarButton">✅ Aprobar
+                Criatura</button>
         </div>
     </div>
 
@@ -284,8 +285,20 @@
         init();
         loadModel();
 
+        function initSession() {
+            const currentSession = Date.now().toString();
+            const lastSession = localStorage.getItem('sessionId');
+
+            if (lastSession !== currentSession) {
+                console.log('Nueva sesión detectada, limpiando localStorage...');
+                localStorage.clear();
+                localStorage.setItem('sessionId', currentSession);
+            }
+        }
+
         function init() {
-            // Escena
+            initSession(); 
+
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x001122);
 
@@ -523,6 +536,9 @@
             button.textContent = autoRotate ? '⏸️ Auto-rotar' : '🔄 Auto-rotar';
         };
 
+        // Añadir después de las variables globales
+        const channel = new BroadcastChannel('criaturas');
+
         window.aprobarCriatura = function () {
             if (!model) return;
 
@@ -533,9 +549,7 @@
                 criaturaEstado[name] = parseFloat(sliders[index].value);
             });
 
-            // Guardar en localStorage con más información
-            const criaturas = JSON.parse(localStorage.getItem('criaturas') || '[]');
-            criaturas.push({
+            const nuevaCriatura = {
                 id: Date.now(),
                 morphTargets: criaturaEstado,
                 position: {
@@ -544,11 +558,20 @@
                     z: (Math.random() - 0.5) * 20
                 },
                 timestamp: new Date().toISOString()
-            });
+            };
+
+            // Guardar en localStorage
+            const criaturas = JSON.parse(localStorage.getItem('criaturas') || '[]');
+            criaturas.push(nuevaCriatura);
             localStorage.setItem('criaturas', JSON.stringify(criaturas));
 
-            // Redirigir al entorno
-            window.open('entorno.html', '_blank');
+            // Enviar mensaje a través de BroadcastChannel
+            channel.postMessage({
+                type: 'nueva_criatura',
+                data: nuevaCriatura
+            });
+
+            // window.open('entorno.html', '_blank');
 
             // Resetear la criatura actual
             resetAll();

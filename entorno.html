@@ -28,7 +28,7 @@
 
 <body>
     <div class="info">
-        <h3>🌍 Entorno de Criaturas</h3>
+        <h3>🌍 Entorno de Criaturas</h3>El
         <p>Criaturas activas: <span id="numCriaturas">0</span></p>
     </div>
 
@@ -52,6 +52,9 @@
         const DURACION_COLISION = 500;
         const FUERZA_REBOTE = 0.1; // Reducido de 0.5 a 0.1
         const MAX_COLISIONES = 3;
+
+        // Añadir después de las variables globales
+        const channel = new BroadcastChannel('criaturas');
 
         function init() {
             scene = new THREE.Scene();
@@ -185,6 +188,61 @@
                 } catch (error) {
                     console.error('Error al cargar criatura:', error);
                 }
+            }
+        }
+
+        // Añadir el listener de mensajes
+        channel.onmessage = async (event) => {
+            if (event.data.type === 'nueva_criatura') {
+                await cargarNuevaCriatura(event.data.data);
+            }
+        };
+
+        // Función para cargar una nueva criatura
+        async function cargarNuevaCriatura(criatura) {
+            const loader = new GLTFLoader();
+            try {
+                const gltf = await loader.loadAsync('./models/morphing_creatures.glb');
+                const modelo = gltf.scene.clone();
+
+                // Aplicar los morph targets
+                modelo.traverse((child) => {
+                    if (child.isMesh && child.morphTargetInfluences && child.morphTargetDictionary) {
+                        Object.entries(criatura.morphTargets).forEach(([name, value]) => {
+                            const index = child.morphTargetDictionary[name];
+                            if (typeof index !== 'undefined') {
+                                child.morphTargetInfluences[index] = value;
+                            }
+                        });
+                    }
+                });
+
+                // Posicionar la criatura
+                modelo.position.set(
+                    criatura.position.x,
+                    criatura.position.y,
+                    criatura.position.z
+                );
+
+                scene.add(modelo);
+                criaturas.push({
+                    id: criatura.id,
+                    modelo,
+                    position: { ...criatura.position },
+                    velocidad: new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.05,
+                        0,
+                        (Math.random() - 0.5) * 0.05
+                    ),
+                    colisionando: false,
+                    tiempoColision: 0,
+                    contadorColisiones: 0
+                });
+
+                // Actualizar contador
+                document.getElementById('numCriaturas').textContent = criaturas.length;
+            } catch (error) {
+                console.error('Error al cargar nueva criatura:', error);
             }
         }
 
